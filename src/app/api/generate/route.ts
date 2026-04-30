@@ -1,63 +1,45 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const SYSTEM_PROMPT = `Eres un generador de especificaciones técnicas. Genera una especificación técnica completa para el producto descrito por el usuario.
+const SYSTEM_PROMPT = `You are a senior software architect. Your ONLY task is to generate technical specifications in JSON format.
 
-Responde SOLO con JSON válido, sin markdown ni texto adicional. Estructura exacta requerida:
+Given the product idea provided by the user, generate a complete technical specification as a JSON object.
+
+IMPORTANT: Respond with the raw JSON object directly — no wrapper keys, no markdown fences, no extra text.
+The root object must have exactly these 6 keys:
+
 {
-  "vision": "Descripción general del producto, problema que resuelve, propuesta de valor",
-  "usuarios": { "profiles": ["perfil1", "perfil2"], "needs": ["necesidad1"], "frustrations": ["frustración1"] },
-  "funcionalidades": [{ "name": "nombre", "description": "descripción", "priority": "high|medium|low", "complexity": "high|medium|low" }],
-  "flujos": [{ "name": "nombre del flujo", "steps": ["paso1", "paso2", "paso3"] }],
-  "arquitectura": { "frontend": "tecnología recomendada", "backend": "tecnología recomendada", "database": "tecnología recomendada", "infrastructure": "tecnología recomendada" },
-  "dataModels": [{ "name": "nombre del modelo", "fields": [{ "name": "campo", "type": "tipo de dato" }] }],
-  "apiEndpoints": [{ "method": "GET|POST|PUT|DELETE", "path": "/ruta", "description": "descripción del endpoint" }],
-  "requisitos": { "functional": ["requisito1", "requisito2"], "nonFunctional": ["requisito1", "requisito2"] }
-}`;
+  "vision": "<string, 2-4 sentences describing the product vision, core purpose, and value proposition>",
+  "users": "<string, 2-4 sentences describing the target users, their context, and their main pain points>",
+  "features": [
+    "El usuario puede ... (or El sistema permite ...)",
+    "... between 5 and 8 items total ..."
+  ],
+  "flows": [
+    {
+      "name": "<short flow name>",
+      "steps": ["Step 1", "Step 2", "Step 3"],
+      "error_path": "<what happens if this flow fails>"
+    }
+  ],
+  "architecture": "<string, 2-4 sentences describing the technical architecture, stack choices, and system design>",
+  "requirements": "<string, 2-4 sentences covering the key functional and non-functional requirements>"
+}
+
+Rules:
+- features: array of strings, 5–8 items, each starting with 'El usuario puede' or 'El sistema permite'.
+- flows: array of objects, 3–5 items. Each object must have exactly: name (string), steps (array of strings with the happy-path steps in order), error_path (string describing what happens if the flow fails).
+- vision, users, architecture, requirements: plain strings of exactly 2–4 sentences — not one line, not a long paragraph.
+- Output only the JSON object. No wrapper object, no extra keys, no explanation.
+
+IMPORTANT: Return the JSON object directly. Do NOT wrap it in any parent key like spec, data, result or any other wrapper. The root of your response must be the JSON object itself.`;
 
 interface MiniMaxSpec {
   vision: string;
-  usuarios: { profiles: string[]; needs: string[]; frustrations: string[] };
-  funcionalidades: Array<{ name: string; description: string; priority: string; complexity: string }>;
-  flujos: Array<{ name: string; steps: string[] }>;
-  arquitectura: { frontend: string; backend: string; database: string; infrastructure: string };
-  dataModels: Array<{ name: string; fields: Array<{ name: string; type: string }> }>;
-  apiEndpoints: Array<{ method: string; path: string; description: string }>;
-  requisitos: { functional: string[]; nonFunctional: string[] };
-}
-
-interface SpecData {
-  overview: string;
-  features: Array<{ name: string; priority: string; complexity: string }>;
-  userFlows: Array<{ name: string; steps: string[] }>;
-  dataModels: Array<{ name: string; fields: Array<{ name: string; type: string }> }>;
-  apiEndpoints: Array<{ method: string; path: string; description: string }>;
-  techStack: { frontend: string; backend: string; database: string; infrastructure: string };
-  glossary: Array<{ term: string; definition: string }>;
-}
-
-function transformToFrontendSpec(raw: MiniMaxSpec): SpecData {
-  const priorityMap: Record<string, string> = {
-    high: "must-have",
-    medium: "should-have",
-    low: "nice-to-have",
-  };
-
-  return {
-    overview: raw.vision,
-    features: raw.funcionalidades.map((f) => ({
-      name: f.name,
-      priority: priorityMap[f.priority] || f.priority,
-      complexity: f.complexity,
-    })),
-    userFlows: raw.flujos,
-    dataModels: raw.dataModels || [],
-    apiEndpoints: raw.apiEndpoints || [],
-    techStack: raw.arquitectura,
-    glossary: raw.usuarios.profiles.map((profile) => ({
-      term: profile,
-      definition: `Usuario objetivo: ${profile}`,
-    })),
-  };
+  users: string;
+  features: string[];
+  flows: Array<{ name: string; steps: string[]; error_path: string }>;
+  architecture: string;
+  requirements: string;
 }
 
 export async function POST(request: NextRequest) {
@@ -115,8 +97,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const spec = transformToFrontendSpec(rawSpec);
-    return NextResponse.json({ spec, id: crypto.randomUUID() });
+    return NextResponse.json({ spec: rawSpec, id: crypto.randomUUID() });
   } catch (error) {
     console.error("Generation error:", error);
     return NextResponse.json(
