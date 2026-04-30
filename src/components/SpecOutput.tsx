@@ -1,6 +1,19 @@
 "use client";
 
 import { useState } from "react";
+import {
+  Lightbulb,
+  Users,
+  Zap,
+  Workflow,
+  Building2,
+  FileCheck,
+  Copy,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  Plus,
+} from "lucide-react";
 
 interface Flow {
   name: string;
@@ -19,9 +32,39 @@ interface Spec {
 
 interface SpecOutputProps {
   spec: Spec;
+  onNewSpec?: () => void;
 }
 
-export default function SpecOutput({ spec }: SpecOutputProps) {
+interface SectionProps {
+  icon: React.ReactNode;
+  title: string;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+}
+
+function Section({ icon, title, children, defaultOpen = true }: SectionProps) {
+  const [isOpen, setIsOpen] = useState(defaultOpen);
+
+  return (
+    <div className="bg-[var(--card)] rounded-2xl p-6 md:p-8 border border-[var(--border)]">
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="w-full flex items-center gap-3 mb-4 group"
+      >
+        <span className="text-[var(--foreground)]">{icon}</span>
+        <h2 className="text-lg font-bold text-[var(--foreground)] flex-1 text-left">{title}</h2>
+        {isOpen ? (
+          <ChevronUp className="w-5 h-5 text-[var(--muted-foreground)] group-hover:text-[var(--foreground)] transition-colors" />
+        ) : (
+          <ChevronDown className="w-5 h-5 text-[var(--muted-foreground)] group-hover:text-[var(--foreground)] transition-colors" />
+        )}
+      </button>
+      {isOpen && <div className="mt-2">{children}</div>}
+    </div>
+  );
+}
+
+export default function SpecOutput({ spec, onNewSpec }: SpecOutputProps) {
   const [copied, setCopied] = useState(false);
 
   const handleCopy = async () => {
@@ -55,124 +98,110 @@ ${spec.requirements}
   };
 
   return (
-    <div className="animate-fade-in space-y-8">
-      {/* Vision - Hero Section */}
-      <div className="bg-gradient-to-br from-zinc-800 to-zinc-900 rounded-2xl p-8 border border-zinc-700">
-        <div className="flex items-center gap-3 mb-4">
-          <span className="text-2xl">💡</span>
-          <h2 className="text-xl font-bold text-white">Vision</h2>
+    <div className="animate-fade-in space-y-6 mt-8">
+      {onNewSpec && (
+        <div className="flex justify-end">
+          <button
+            onClick={onNewSpec}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl font-medium border border-[var(--border)] hover:bg-[var(--secondary)] transition-colors text-sm"
+          >
+            <Plus className="w-4 h-4" />
+            Nueva especificación
+          </button>
         </div>
-        <p className="text-zinc-300 text-lg leading-relaxed">{spec.vision}</p>
-      </div>
+      )}
 
-      {/* Users Section */}
-      <div className="bg-zinc-900 rounded-2xl p-8 border border-zinc-800">
-        <div className="flex items-center gap-3 mb-6">
-          <span className="text-2xl">👥</span>
-          <h2 className="text-xl font-bold text-white">Usuarios</h2>
-        </div>
-        <div className="bg-zinc-800 rounded-xl p-6">
-          <p className="text-zinc-300 leading-relaxed">{spec.users}</p>
-        </div>
-      </div>
+      <Section icon={<Lightbulb className="w-5 h-5" />} title="Visión">
+        <p className="text-[var(--foreground)] text-lg leading-relaxed">{spec.vision}</p>
+      </Section>
 
-      {/* Features Section */}
-      <div className="bg-zinc-900 rounded-2xl p-8 border border-zinc-800">
-        <div className="flex items-center gap-3 mb-6">
-          <span className="text-2xl">⚡</span>
-          <h2 className="text-xl font-bold text-white">Funcionalidades</h2>
+      <Section icon={<Users className="w-5 h-5" />} title="Usuarios">
+        <div className="bg-[var(--secondary)] rounded-xl p-6">
+          <p className="text-[var(--foreground)] leading-relaxed">{spec.users}</p>
         </div>
+      </Section>
+
+      <Section icon={<Zap className="w-5 h-5" />} title="Funcionalidades">
         <div className="grid gap-3">
           {spec.features.map((feature, index) => {
             const isUserCan = feature.startsWith("El usuario puede");
             return (
-              <div key={index} className="flex items-start gap-3 p-4 bg-zinc-800 rounded-xl">
-                <span className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold ${
-                  isUserCan ? "bg-blue-600 text-white" : "bg-purple-600 text-white"
-                }`}>
+              <div
+                key={index}
+                className="flex items-start gap-3 p-4 bg-[var(--secondary)] rounded-xl"
+              >
+                <span
+                  className={`flex-shrink-0 w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold ${
+                    isUserCan ? "bg-blue-600 text-white" : "bg-purple-600 text-white"
+                  }`}
+                >
                   {index + 1}
                 </span>
-                <span className="text-zinc-300">{feature}</span>
+                <span className="text-[var(--foreground)]">{feature}</span>
               </div>
             );
           })}
         </div>
-      </div>
+      </Section>
 
-      {/* Flows Section */}
-      <div className="bg-zinc-900 rounded-2xl p-8 border border-zinc-800">
-        <div className="flex items-center gap-3 mb-6">
-          <span className="text-2xl">🔄</span>
-          <h2 className="text-xl font-bold text-white">Flujos</h2>
-        </div>
+      <Section icon={<Workflow className="w-5 h-5" />} title="Flujos">
         <div className="space-y-6">
           {spec.flows.map((flow, index) => (
-            <div key={index} className="bg-zinc-800 rounded-xl p-6">
+            <div key={index} className="bg-[var(--secondary)] rounded-xl p-6">
               <div className="flex items-center gap-2 mb-4">
                 <span className="bg-emerald-600 text-white text-xs px-2 py-1 rounded font-medium">
                   Principal
                 </span>
-                <h3 className="font-semibold text-white">{flow.name}</h3>
+                <h3 className="font-semibold text-[var(--foreground)]">{flow.name}</h3>
               </div>
               <div className="flex items-center gap-2 flex-wrap mb-4">
                 {flow.steps.map((step, stepIndex) => (
                   <span key={stepIndex} className="flex items-center gap-2">
-                    <span className="bg-zinc-700 text-zinc-300 px-3 py-1 rounded-full text-sm">
+                    <span className="bg-[var(--muted)] text-[var(--foreground)] px-3 py-1 rounded-full text-sm">
                       {stepIndex + 1}. {step}
                     </span>
                     {stepIndex < flow.steps.length - 1 && (
-                      <span className="text-zinc-500">→</span>
+                      <span className="text-[var(--muted-foreground)]">→</span>
                     )}
                   </span>
                 ))}
               </div>
-              <div className="flex items-center gap-2 pt-4 border-t border-zinc-700">
+              <div className="flex items-center gap-2 pt-4 border-t border-[var(--border)]">
                 <span className="bg-red-900/50 text-red-400 text-xs px-2 py-1 rounded font-medium">
                   Error
                 </span>
-                <span className="text-zinc-400 text-sm">{flow.error_path}</span>
+                <span className="text-[var(--muted-foreground)] text-sm">{flow.error_path}</span>
               </div>
             </div>
           ))}
         </div>
-      </div>
+      </Section>
 
-      {/* Architecture Section */}
-      <div className="bg-zinc-900 rounded-2xl p-8 border border-zinc-800">
-        <div className="flex items-center gap-3 mb-6">
-          <span className="text-2xl">🏗️</span>
-          <h2 className="text-xl font-bold text-white">Arquitectura</h2>
+      <Section icon={<Building2 className="w-5 h-5" />} title="Arquitectura">
+        <div className="bg-[var(--secondary)] rounded-xl p-6">
+          <p className="text-[var(--foreground)] leading-relaxed">{spec.architecture}</p>
         </div>
-        <div className="bg-zinc-800 rounded-xl p-6">
-          <p className="text-zinc-300 leading-relaxed">{spec.architecture}</p>
-        </div>
-      </div>
+      </Section>
 
-      {/* Requirements Section */}
-      <div className="bg-zinc-900 rounded-2xl p-8 border border-zinc-800">
-        <div className="flex items-center gap-3 mb-6">
-          <span className="text-2xl">📋</span>
-          <h2 className="text-xl font-bold text-white">Requisitos</h2>
+      <Section icon={<FileCheck className="w-5 h-5" />} title="Requisitos">
+        <div className="bg-[var(--secondary)] rounded-xl p-6">
+          <p className="text-[var(--foreground)] leading-relaxed">{spec.requirements}</p>
         </div>
-        <div className="bg-zinc-800 rounded-xl p-6">
-          <p className="text-zinc-300 leading-relaxed">{spec.requirements}</p>
-        </div>
-      </div>
+      </Section>
 
-      {/* Copy Button */}
       <button
         onClick={handleCopy}
-        className="w-full bg-zinc-800 hover:bg-zinc-700 text-white py-4 rounded-xl font-semibold transition flex items-center justify-center gap-2 border border-zinc-700"
+        className="w-full flex items-center justify-center gap-2 py-4 rounded-xl font-semibold bg-[var(--secondary)] hover:bg-[var(--accent)] transition border border-[var(--border)]"
       >
         {copied ? (
           <>
-            <span>✓</span>
-            Copiado al portapapeles
+            <Check className="w-5 h-5 text-emerald-400" />
+            <span className="text-emerald-400">Copiado al portapapeles</span>
           </>
         ) : (
           <>
-            <span>📋</span>
-            Copiar especificacion completa
+            <Copy className="w-5 h-5" />
+            Copiar especificación completa
           </>
         )}
       </button>
