@@ -1,4 +1,56 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
+
+const ipRequestMap = new Map<string, { count: number; resetAt: number }>();
+const WINDOW_MS = 60000;
+const MAX_REQUESTS = 10;
+
+function getRateLimitInfo(ip: string) {
+  const now = Date.now();
+  const record = ipRequestMap.get(ip);
+
+  if (!record || now > record.resetAt) {
+    const resetAt = now + WINDOW_MS;
+    ipRequestMap.set(ip, { count: 1, resetAt });
+    return { success: true, remaining: MAX_REQUESTS - 1, resetAt };
+  }
+
+  record.count++;
+  const success = record.count <= MAX_REQUESTS;
+  return { success, remaining: Math.max(0, MAX_REQUESTS - record.count), resetAt: record.resetAt };
+}
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "https://specbuilder.vercel.app",
+  "Access-Control-Allow-Methods": "POST",
+  "Access-Control-Allow-Headers": "Content-Type",
+};
+
+const inputSchema = z.object({
+  description: z
+    .string()
+    .min(20, "Description must be at least 20 characters")
+    .max(5000, "Description too long")
+    .transform((val) => val.replace(/<[^>]*>/g, "").trim()),
+});
+
+const specSchema = z.object({
+  vision: z.string(),
+  users: z.string(),
+  features: z.array(z.string()).min(5).max(8),
+  flows: z
+    .array(
+      z.object({
+        name: z.string(),
+        steps: z.array(z.string()),
+        error_path: z.string(),
+      })
+    )
+    .min(3)
+    .max(5),
+  architecture: z.string(),
+  requirements: z.string(),
+});
 
 const SYSTEM_PROMPT = `You are a senior software architect. Your ONLY task is to generate technical specifications in JSON format.
 
@@ -33,48 +85,48 @@ Rules:
 
 IMPORTANT: Return the JSON object directly. Do NOT wrap it in any parent key like spec, data, result or any other wrapper. The root of your response must be the JSON object itself.`;
 
-interface MiniMaxSpec {
-  vision: string;
-  users: string;
-  features: string[];
-  flows: Array<{ name: string; steps: string[]; error_path: string }>;
-  architecture: string;
-  requirements: string;
-}
-
 export async function POST(request: NextRequest) {
+  const ip = request.headers.get("x-forwarded-for")?.split(",")[0] ?? "127.0.0.1";
+  const { success } = getRateLimitInfo(ip);
+
+  if (!success) {
+    return NextResponse.json(
+      { error: "Too many requests" },
+      { status: 429, headers: corsHeaders }
+    );
+  }
+
   try {
     const body = await request.json();
-    const { description } = body;
+    const parsed = inputSchema.safeParse(body);
 
-    if (!description || typeof description !== "string" || description.trim().length < 20) {
+    if (!parsed.success) {
       return NextResponse.json(
-        { error: "Description must be at least 20 characters" },
-        { status: 400 }
+        { error: parsed.error.issues[0].message },
+        { status: 400, headers: corsHeaders }
       );
     }
 
-    const fullPrompt = `${SYSTEM_PROMPT}\n\nProducto: ${description.trim()}`;
+    const fullPrompt = `${SYSTEM_PROMPT}\n\nProducto: ${parsed.data.description}`;
 
     const response = await fetch("https://api.minimax.io/anthropic/v1/messages", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "Authorization": `Bearer ${process.env.ANTHROPIC_API_KEY}`,
+        Authorization: `Bearer ${process.env.ANTHROPIC_API_KEY}`,
       },
       body: JSON.stringify({
         model: "MiniMax-M2.7",
         max_tokens: 4096,
         messages: [{ role: "user", content: fullPrompt }],
       }),
+      signal: AbortSignal.timeout(30000),
     });
 
     if (!response.ok) {
-      const errorData = await response.text();
-      console.error("MiniMax API error:", response.status, errorData);
       return NextResponse.json(
         { error: "Failed to generate spec. Please try again." },
-        { status: 500 }
+        { status: 500, headers: corsHeaders }
       );
     }
 
@@ -84,25 +136,20 @@ export async function POST(request: NextRequest) {
       .map((block: { text?: string }) => block.text || "")
       .join("");
 
-    let rawSpec: MiniMaxSpec;
-    try {
-      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-      const cleanJson = jsonMatch ? jsonMatch[0] : responseText;
-      rawSpec = JSON.parse(cleanJson);
-    } catch {
-      console.error("Failed to parse LLM response:", responseText);
-      return NextResponse.json(
-        { error: "Failed to parse generated spec. Please try again." },
-        { status: 500 }
-      );
-    }
+    const jsonMatch = responseText.match(/\{[\s\S]*\}/);
+    const cleanJson = jsonMatch ? jsonMatch[0] : responseText;
+    const parsedSpec = JSON.parse(cleanJson);
 
-    return NextResponse.json({ spec: rawSpec, id: crypto.randomUUID() });
-  } catch (error) {
-    console.error("Generation error:", error);
+    const validatedSpec = specSchema.parse(parsedSpec);
+
+    return NextResponse.json(
+      { spec: validatedSpec, id: crypto.randomUUID() },
+      { headers: corsHeaders }
+    );
+  } catch {
     return NextResponse.json(
       { error: "Failed to generate spec. Please try again." },
-      { status: 500 }
+      { status: 500, headers: corsHeaders }
     );
   }
 }

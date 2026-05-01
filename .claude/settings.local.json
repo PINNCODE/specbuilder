@@ -12,7 +12,10 @@
       "Bash(python3 -m json.tool)",
       "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\(json.dumps\\(d, indent=2, ensure_ascii=False\\)\\)\")",
       "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('glossary:', json.dumps\\(d['spec']['glossary'], indent=2\\)\\)\")",
-      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('dataModels:', len\\(d['spec']['dataModels']\\), 'apiEndpoints:', len\\(d['spec']['apiEndpoints']\\)\\)\")"
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('dataModels:', len\\(d['spec']['dataModels']\\), 'apiEndpoints:', len\\(d['spec']['apiEndpoints']\\)\\)\")",
+      "Bash(npx tsc *)",
+      "Bash(node *)",
+      "Bash(npm uninstall *)"
     ]
   }
 }
