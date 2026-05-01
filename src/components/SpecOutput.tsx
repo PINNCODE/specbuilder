@@ -10,6 +10,7 @@ import {
   FileCheck,
   Copy,
   Check,
+  Download,
   ChevronDown,
   ChevronUp,
   Plus,
@@ -66,6 +67,48 @@ function Section({ icon, title, children, defaultOpen = true }: SectionProps) {
 
 export default function SpecOutput({ spec, onNewSpec }: SpecOutputProps) {
   const [copied, setCopied] = useState(false);
+
+  const formatSpecAsMarkdown = () => {
+    return `# Visión
+
+${spec.vision}
+
+# Usuarios
+
+${spec.users}
+
+# Funcionalidades
+
+${spec.features.map((f, i) => `${i + 1}. ${f}`).join("\n")}
+
+# Flujos
+
+${spec.flows.map((flow) => `## ${flow.name}
+
+${flow.steps.map((s) => `- ${s}`).join("\n")}
+
+**Error:** ${flow.error_path}`).join("\n\n")}
+
+# Arquitectura
+
+${spec.architecture}
+
+# Requisitos
+
+${spec.requirements}
+`;
+  };
+
+  const handleDownloadMd = () => {
+    const md = formatSpecAsMarkdown();
+    const blob = new Blob([md], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `spec-${Date.now()}.md`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const handleCopy = async () => {
     const text = `
@@ -189,22 +232,31 @@ ${spec.requirements}
         </div>
       </Section>
 
-      <button
-        onClick={handleCopy}
-        className="w-full flex items-center justify-center gap-2 py-4 rounded-xl font-semibold bg-[var(--secondary)] hover:bg-[var(--accent)] transition border border-[var(--border)]"
-      >
-        {copied ? (
-          <>
-            <Check className="w-5 h-5 text-emerald-400" />
-            <span className="text-emerald-400">Copiado al portapapeles</span>
-          </>
-        ) : (
-          <>
-            <Copy className="w-5 h-5" />
-            Copiar especificación completa
-          </>
-        )}
-      </button>
+      <div className="flex gap-3">
+        <button
+          onClick={handleCopy}
+          className="flex-1 flex items-center justify-center gap-2 py-4 rounded-xl font-semibold bg-[var(--secondary)] hover:bg-[var(--accent)] transition border border-[var(--border)]"
+        >
+          {copied ? (
+            <>
+              <Check className="w-5 h-5 text-emerald-400" />
+              <span className="text-emerald-400">Copiado</span>
+            </>
+          ) : (
+            <>
+              <Copy className="w-5 h-5" />
+              <span>Copiar</span>
+            </>
+          )}
+        </button>
+        <button
+          onClick={handleDownloadMd}
+          className="flex-1 flex items-center justify-center gap-2 py-4 rounded-xl font-semibold bg-[var(--secondary)] hover:bg-[var(--accent)] transition border border-[var(--border)]"
+        >
+          <Download className="w-5 h-5" />
+          <span>Descargar .md</span>
+        </button>
+      </div>
     </div>
   );
 }

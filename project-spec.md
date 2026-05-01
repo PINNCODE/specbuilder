@@ -52,8 +52,8 @@ Emprendedor no técnico con una idea de producto en etapas tempranas.
 **El usuario puede:**
 
 - Visualizar la spec completa generada en tiempo real
+- Descargar la spec como archivo Markdown ✅
 - Descargar la spec como documento PDF
-- Descargar la spec como archivo Markdown
 - Copiar la spec al clipboard con un click
 - Exportar a shareable link
 
@@ -258,7 +258,8 @@ Usuario              Frontend              API Route            MiniMax
 |------|---------|-----|
 | Borradores | Vercel KV (Redis) | Auto-save cada 30s |
 | Specs completadas | Vercel KV (Redis) | 30 días |
-| Exportar PDF | Client-side (`react-pdf` / `html2pdf.js`) | — |
+| Exportar PDF | Client-side (`html2pdf.js`) | — |
+| Exportar Markdown | Client-side (`Blob` + `createObjectURL`) | — |
 
 ---
 
