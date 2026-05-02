@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@clerk/nextjs/server";
 import { z } from "zod";
 import Anthropic from "@anthropic-ai/sdk";
 import { MessageStreamEvent } from "@anthropic-ai/sdk/resources/messages/messages.js";
@@ -88,6 +89,11 @@ Rules:
 IMPORTANT: Return the JSON object directly. Do NOT wrap it in any parent key like spec, data, result or any other wrapper. The root of your response must be the JSON object itself.`;
 
 export async function POST(request: NextRequest) {
+  const { userId } = await auth();
+  if (!userId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401, headers: corsHeaders });
+  }
+
   const ip = request.headers.get("x-forwarded-for")?.split(",")[0] ?? "127.0.0.1";
   const { success } = getRateLimitInfo(ip);
 

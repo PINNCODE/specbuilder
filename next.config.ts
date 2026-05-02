@@ -3,7 +3,7 @@ import type { NextConfig } from "next";
 const securityHeaders = [
   {
     key: "Content-Security-Policy",
-    value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline';",
+    value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://*.clerk.accounts.dev blob:; worker-src 'self' blob:; style-src 'self' 'unsafe-inline'; connect-src 'self' https://*.clerk.accounts.dev https://api.minimax.io https://clerk-telemetry.com; img-src 'self' https://img.clerk.com data:;",
   },
   {
     key: "X-Frame-Options",

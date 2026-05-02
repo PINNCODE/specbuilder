@@ -65,6 +65,35 @@ Emprendedor no técnico con una idea de producto en etapas tempranas.
 
 ---
 
+### AUTENTICACIÓN
+
+**El usuario puede:**
+
+- Registrarse con email/password o SSO (Google, GitHub)
+- Iniciar sesión con su cuenta
+- Cerrar sesión
+- Ver su nombre y foto de perfil cuando está autenticado
+
+**El sistema permite:**
+
+- Proteger las rutas `/builder` y `/spec/[id]` de usuarios no autenticados
+- Verificar sesión en el endpoint `/api/generate`
+- Redirigir a sign-in cuando un usuario no autenticado intenta acceder a rutas protegidas
+
+**Stack de autenticación:** Clerk (Next.js SDK v7)
+
+**Rutas protegidas:**
+- `/builder` → redirige a `/sign-in` si no autenticado
+- `/spec/[id]` → redirige a `/sign-in` si no autenticado
+- `/api/generate` → retorna 401 si no autenticado
+
+**Rutas públicas:**
+- `/` (landing)
+- `/sign-in`
+- `/sign-up`
+
+---
+
 ### ESTADOS
 
 **El sistema permite:**
@@ -338,6 +367,8 @@ interface SpecEntry {
 ANTHROPIC_API_KEY    # Clave de Anthropic (apunta a endpoint MiniMax)
 KV_REST_API_URL      # Vercel KV URL
 KV_REST_API_TOKEN    # Vercel KV token
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY  # Clerk publishable key (前端用)
+CLERK_SECRET_KEY     # Clerk secret key (后端用)
 ```
 
 ---
@@ -360,9 +391,11 @@ KV_REST_API_TOKEN    # Vercel KV token
 
 - **Validación de input:** Todo user input se sanitiza antes de enviarse al LLM (prevenir prompt injection)
 - **API keys:** Almacenadas en environment variables de Vercel, nunca exponidas al cliente
-- **Rate limiting:** 10 requests/minuto por IP en `/api/generate`
+- **Rate limiting:** 10 requests/minuto por IP en `/api/generate` (para usuarios no autenticados)
+- **Autenticación:** Todas las llamadas autenticadas verifican sesión con `auth()` de Clerk → 401 si no hay sesión válida
 - **CORS:** Solo el dominio de la app puede llamar a las API routes
-- **Sin datos sensibles:** No se almacenan nombres, emails, ni información personal
+- **CSP:** Content Security Policy configurada para permitir recursos de Clerk (scripts, imágenes, workers)
+- **Sin datos sensibles:** No se almacenan nombres, emails, ni información personal en nuestro backend
 
 ---
 
@@ -390,7 +423,7 @@ KV_REST_API_TOKEN    # Vercel KV token
 
 | Área | Excluido | Razón |
 |------|----------|-------|
-| Autenticación de usuarios | No hay login, signup, ni cuentas | MVP no lo requiere. Specs son link-shareables |
+| ~~Autenticación de usuarios~~ | ~~No hay login, signup, ni cuentas~~ | **IMPLEMENTADO con Clerk**. Specs link-shareables siguen siendo el modelo |
 | Edición colaborativa | No hay multi-usuario por spec | Complexity fuera del MVP |
 | Integración con project tools | No Jira, Notion, Trello, Linear | Premature. Se puede agregar después |
 | Hosting de archivos | No storage de imágenes, PDFs subidos por usuario | MVP solo genera spec textual |

@@ -1,19 +1,13 @@
 "use client";
 
 import Link from "next/link";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { Sparkles, Zap, FileText, ArrowRight } from "lucide-react";
+import { Header } from "@/components/Header";
 
 export default function Home() {
   return (
     <main className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
-      <header className="flex items-center justify-between p-6 max-w-6xl mx-auto">
-        <div className="flex items-center gap-2">
-          <Sparkles className="w-6 h-6 text-amber-400" />
-          <span className="text-xl font-bold">Spec Builder</span>
-        </div>
-        <ThemeToggle />
-      </header>
+      <Header />
 
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-amber-500/10 via-transparent to-purple-500/10 pointer-events-none" />

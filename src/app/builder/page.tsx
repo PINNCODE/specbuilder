@@ -2,13 +2,15 @@
 
 import { useState, useEffect, useRef, useCallback } from "react";
 import { z } from "zod";
+import dynamic from "next/dynamic";
 import SpecOutput from "@/components/SpecOutput";
 import StreamingOutput from "@/components/StreamingOutput";
-import { ThemeToggle } from "@/components/ThemeToggle";
 import { toast } from "@/components/Toaster";
-import { Lightbulb, Loader2, X, Info, ChevronRight, Sparkles, Clock } from "lucide-react";
+import { Lightbulb, Loader2, X, Info, ChevronRight, Clock } from "lucide-react";
 import HistoryPanel from "@/components/HistoryPanel";
 import { saveSpec, SpecEntry } from "@/utils/storage";
+
+const Header = dynamic(() => import("@/components/Header").then((m) => m.Header), { ssr: false });
 
 interface Spec {
   vision: string;
@@ -210,30 +212,27 @@ export default function BuilderPage() {
 
   return (
     <main className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
-      <header className="flex items-center justify-between p-6 max-w-2xl mx-auto">
-        <div className="flex items-center gap-2">
-          <Sparkles className="w-5 h-5 text-amber-400" />
-          <span className="font-bold">Spec Builder</span>
-        </div>
-        <div className="flex items-center gap-4">
-          {spec && (
+      <Header
+        actions={
+          <>
+            {spec && (
+              <button
+                onClick={handleNewSpec}
+                className="text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+              >
+                Nueva spec
+              </button>
+            )}
             <button
-              onClick={handleNewSpec}
-              className="text-sm text-[var(--muted-foreground)] hover:text-[var(--foreground)] transition-colors"
+              onClick={() => setIsHistoryOpen(true)}
+              className="p-2 rounded-lg hover:bg-[var(--secondary)] transition-colors"
+              aria-label="Ver historial"
             >
-              Nueva spec
+              <Clock className="w-5 h-5" />
             </button>
-          )}
-          <button
-            onClick={() => setIsHistoryOpen(true)}
-            className="p-2 rounded-lg hover:bg-[var(--secondary)] transition-colors"
-            aria-label="Ver historial"
-          >
-            <Clock className="w-5 h-5" />
-          </button>
-          <ThemeToggle />
-        </div>
-      </header>
+          </>
+        }
+      />
 
       <div className="w-full max-w-2xl mx-auto px-6 pb-20">
         <div className="text-center mb-8">
