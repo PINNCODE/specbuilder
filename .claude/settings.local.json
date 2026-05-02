@@ -15,7 +15,8 @@
       "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('dataModels:', len\\(d['spec']['dataModels']\\), 'apiEndpoints:', len\\(d['spec']['apiEndpoints']\\)\\)\")",
       "Bash(npx tsc *)",
       "Bash(node *)",
-      "Bash(npm uninstall *)"
+      "Bash(npm uninstall *)",
+      "Bash(npm list *)"
     ]
   }
 }

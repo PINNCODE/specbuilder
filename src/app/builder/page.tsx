@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback } from "react";
+import { z } from "zod";
 import SpecOutput from "@/components/SpecOutput";
+import StreamingOutput from "@/components/StreamingOutput";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { toast } from "@/components/Toaster";
 import { Lightbulb, Loader2, X, Info, ChevronRight, Sparkles } from "lucide-react";
@@ -14,6 +16,24 @@ interface Spec {
   architecture: string;
   requirements: string;
 }
+
+const specSchema = z.object({
+  vision: z.string(),
+  users: z.string(),
+  features: z.array(z.string()).min(5).max(8),
+  flows: z
+    .array(
+      z.object({
+        name: z.string(),
+        steps: z.array(z.string()),
+        error_path: z.string(),
+      })
+    )
+    .min(3)
+    .max(5),
+  architecture: z.string(),
+  requirements: z.string(),
+});
 
 const MIN_CHARS = 20;
 const TIPS = [
@@ -29,6 +49,9 @@ export default function BuilderPage() {
   const [generationStatus, setGenerationStatus] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [spec, setSpec] = useState<Spec | null>(null);
+  const [streamingText, setStreamingText] = useState("");
+  const [isStreamingComplete, setIsStreamingComplete] = useState(false);
+  const [showStreaming, setShowStreaming] = useState(false);
   const [currentTip, setCurrentTip] = useState(0);
   const [abortController, setAbortController] = useState<AbortController | null>(null);
   const specRef = useRef<HTMLDivElement>(null);
@@ -60,13 +83,20 @@ export default function BuilderPage() {
     setAbortController(controller);
     setIsGenerating(true);
     setError(null);
+    setSpec(null);
+    setStreamingText("");
+    setIsStreamingComplete(false);
+    setShowStreaming(false);
     setGenerationStatus("Validando descripción...");
 
     try {
-      setGenerationStatus("Enviando solicitud...");
+      setGenerationStatus("Generando especificación...");
       const response = await fetch("/api/generate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "text/event-stream",
+        },
         body: JSON.stringify({ description }),
         signal: controller.signal,
       });
@@ -76,15 +106,67 @@ export default function BuilderPage() {
         throw new Error(data.error || "Failed to generate spec");
       }
 
-      setGenerationStatus("Generando especificación...");
-      const data = await response.json();
-      setSpec(data.spec);
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error("No response body");
+
+      const decoder = new TextDecoder();
+      let accumulated = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = chunk.split("\n");
+
+        for (const line of lines) {
+          if (line.startsWith("data: ")) {
+            const data = line.slice(6);
+            if (data === "[DONE]") break;
+            if (data.startsWith("[ERROR]")) {
+              throw new Error(data.slice(7));
+            }
+            if (data.startsWith("[FINAL]")) {
+              accumulated = decodeURIComponent(data.slice(7));
+              break;
+            }
+            try {
+              const parsed = JSON.parse(data);
+              if (parsed.text) {
+                accumulated += parsed.text;
+                setStreamingText(accumulated);
+                if (!showStreaming) setShowStreaming(true);
+              }
+            } catch {}
+          }
+        }
+      }
+
+      setGenerationStatus("Validando estructura...");
+      const jsonMatch = accumulated.match(/\{[\s\S]*\}/);
+      const cleanJson = jsonMatch ? jsonMatch[0] : accumulated;
+      const parsedSpec = JSON.parse(cleanJson);
+
+      const validatedSpec = {
+        vision: parsedSpec.vision,
+        users: parsedSpec.users,
+        features: parsedSpec.features,
+        flows: parsedSpec.flows,
+        architecture: parsedSpec.architecture,
+        requirements: parsedSpec.requirements,
+      };
+
+      specSchema.parse(validatedSpec);
+      setSpec(validatedSpec);
+      setStreamingText("");
+      setIsStreamingComplete(true);
       toast("Especificación generada exitosamente", "success");
 
       setTimeout(() => {
         specRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       }, 100);
     } catch (err) {
+      setStreamingText("");
       if (err instanceof Error && err.name === "AbortError") {
         setError("Generación cancelada");
         toast("Generación cancelada", "info");
@@ -202,6 +284,12 @@ export default function BuilderPage() {
             <div className="mt-4 flex items-center gap-3 text-sm text-[var(--muted-foreground)]">
               <Loader2 className="w-4 h-4 animate-spin" />
               <span>{generationStatus}</span>
+            </div>
+          )}
+
+          {showStreaming && !spec && (
+            <div ref={specRef}>
+              <StreamingOutput accumulatedText={streamingText} isComplete={isStreamingComplete} />
             </div>
           )}
 

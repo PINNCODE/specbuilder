@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import Anthropic from "@anthropic-ai/sdk";
+import { MessageStreamEvent } from "@anthropic-ai/sdk/resources/messages/messages.js";
 
 const ipRequestMap = new Map<string, { count: number; resetAt: number }>();
 const WINDOW_MS = 60000;
@@ -108,32 +110,70 @@ export async function POST(request: NextRequest) {
     }
 
     const fullPrompt = `${SYSTEM_PROMPT}\n\nProducto: ${parsed.data.description}`;
+    const acceptHeader = request.headers.get("accept");
+    const wantsStream = acceptHeader === "text/event-stream";
 
-    const response = await fetch("https://api.minimax.io/anthropic/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${process.env.ANTHROPIC_API_KEY}`,
-      },
-      body: JSON.stringify({
-        model: "MiniMax-M2.7",
-        max_tokens: 4096,
-        messages: [{ role: "user", content: fullPrompt }],
-      }),
-      signal: AbortSignal.timeout(30000),
-    });
+    if (wantsStream) {
+      const client = new Anthropic({
+        baseURL: "https://api.minimax.io/anthropic",
+      });
+      const encoder = new TextEncoder();
 
-    if (!response.ok) {
-      return NextResponse.json(
-        { error: "Failed to generate spec. Please try again." },
-        { status: 500, headers: corsHeaders }
-      );
+      const stream = new ReadableStream({
+        async start(controller) {
+          try {
+            const messageStream = client.messages.stream({
+              model: "MiniMax-M2.7",
+              max_tokens: 4096,
+              system: SYSTEM_PROMPT,
+              messages: [{ role: "user", content: fullPrompt }],
+            });
+
+            let accumulated = "";
+
+            for await (const event of messageStream) {
+              const typedEvent = event as MessageStreamEvent;
+              if (typedEvent.type === "content_block_delta") {
+                const text = (typedEvent as { delta: { text: string } }).delta.text;
+                if (text && text.trim()) {
+                  accumulated += text;
+                  controller.enqueue(encoder.encode(`data: ${JSON.stringify({ text })}\n\n`));
+                }
+              }
+            }
+
+            controller.enqueue(encoder.encode(`data: [FINAL]${encodeURIComponent(accumulated)}\n\n`));
+          } catch (err) {
+            controller.enqueue(encoder.encode(`data: [ERROR]${err instanceof Error ? err.message : "Stream error"}\n\n`));
+          } finally {
+            controller.close();
+          }
+        },
+      });
+
+      return new Response(stream, {
+        headers: {
+          "Content-Type": "text/event-stream",
+          "Cache-Control": "no-cache",
+          Connection: "keep-alive",
+          ...corsHeaders,
+        },
+      });
     }
 
-    const data = await response.json();
-    const responseText = (data.content || [])
-      .filter((block: { type: string; text?: string }) => block.type === "text")
-      .map((block: { text?: string }) => block.text || "")
+    const client = new Anthropic({
+      baseURL: "https://api.minimax.io/anthropic",
+    });
+    const message = await client.messages.create({
+      model: "MiniMax-M2.7",
+      max_tokens: 4096,
+      system: SYSTEM_PROMPT,
+      messages: [{ role: "user", content: fullPrompt }],
+    });
+
+    const responseText = (message.content || [])
+      .filter((block) => block.type === "text")
+      .map((block) => (block as { text?: string }).text || "")
       .join("");
 
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);

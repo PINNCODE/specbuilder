@@ -51,7 +51,7 @@ Emprendedor no técnico con una idea de producto en etapas tempranas.
 
 **El usuario puede:**
 
-- Visualizar la spec completa generada en tiempo real
+- Visualizar la spec completa generada en tiempo real (streaming token a token) ✅
 - Descargar la spec como archivo Markdown ✅
 - Descargar la spec como documento PDF ✅
 - Copiar la spec al clipboard con un click
@@ -72,10 +72,41 @@ Emprendedor no técnico con una idea de producto en etapas tempranas.
 | Estado | Comportamiento |
 |--------|-----------------|
 | **Vacío** | Mostrar ejemplo de una spec completada para guiar al usuario |
-| **Cargando** | Mostrar progreso de generación por sección |
+| **Cargando** | Mostrar estructura de la spec con headers de sección, contenido aparece progresivamente token a token (streaming). Spinner en cada sección no completada |
 | **Completo** | Mostrar spec con opciones de export/share/editar |
 | **Error** | Mostrar mensaje claro con opción de reintentar |
 | **Edición** | Permitir al usuario refinar secciones específicas post-generación |
+
+---
+
+### Streaming de respuesta
+
+**Cómo funciona:**
+
+1. El frontend envía `Accept: text/event-stream` en el request
+2. La API route detecta el header y usa `client.messages.stream()` del Anthropic SDK con `baseURL: "https://api.minimax.io/anthropic"`
+3. Cada chunk de contenido se envía como evento SSE: `data: {"text": "..."}`
+4. Al completar, envía `data: [FINAL]<json encodeado>` para que el frontend valide y parse
+5. El frontend consume el stream con `ReadableStream` y renderiza en `<StreamingOutput>`
+
+**Componente `<StreamingOutput>`:**
+
+- Muestra las 6 secciones de la spec (Visión, Usuarios, Funcionalidades, Flujos, Arquitectura, Requisitos) con sus iconos correspondientes
+- El contenido aparece token a token dentro de cada sección conforme llega del stream
+- Spinner en cada sección que aún no tiene contenido
+- Placeholder "Esperando contenido..." en secciones vacías
+- Al recibir `[FINAL]` y validar, transiciona a `<SpecOutput>` completo
+
+**Validación de estructura:**
+
+- El JSON final se valida con `specSchema` antes de mostrar el resultado completo
+- Si el parsing falla, se muestra error con opción de reintentar
+- Los botones de exportar (Markdown, PDF) operan sobre el spec ya parseado — nunca sobre el stream incompleto
+
+**Timeout:**
+
+- La conexión con MiniMax tiene timeout de 60s
+- Si el stream se corta prematuramente, se muestra el error correspondiente
 
 ---
 
@@ -209,15 +240,19 @@ Input: { description, platform, features, integrations }
         └───────┬───────┘
                 ▼
         ┌───────────────┐
-        │  Call LLM      │ ── Anthropic SDK
+        │  Call LLM      │ ── Anthropic SDK → MiniMax (streaming SSE)
         └───────┬───────┘
                 ▼
         ┌───────────────┐
-        │ Parse response │ ── JSON schema validation
+        │   SSE Stream   │ ── Chunks token a token al frontend
         └───────┬───────┘
                 ▼
         ┌───────────────┐
-        │ Return spec   │ 200 + JSON / 500 + error
+        │  Parse Final   │ ── Validar JSON, transicionar a SpecOutput
+        └───────┬───────┘
+                ▼
+        ┌───────────────┐
+        │ Return spec   │ 200 + JSON / 500 + error / SSE stream
         └───────────────┘
 ```
 
