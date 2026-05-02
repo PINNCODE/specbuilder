@@ -1,0 +1,11 @@
+Tengo al [NOMBRE DEL PROYECTO]: [BREVE DESCRIPCION DEL PROYECTO]
+quiero anadir una feature [DESCRIPCION DE LA FEATURE]
+
+Genera un mini-spec con exactamente estos 4 campos:
+
+- que hace
+- porque
+- criterios de aceptacion (lisda de checkboxes)
+- no incluuye
+
+se especifico y conciso. el campo "no incluye" no es tan importante como los criterios - protege el scope

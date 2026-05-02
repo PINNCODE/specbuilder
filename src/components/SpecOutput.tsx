@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
 import {
   Lightbulb,
   Users,
@@ -15,6 +16,8 @@ import {
   ChevronUp,
   Plus,
 } from "lucide-react";
+
+const DownloadPdfButton = dynamic(() => import("./DownloadPdfButton"), { ssr: false });
 
 interface Flow {
   name: string;
@@ -256,6 +259,7 @@ ${spec.requirements}
           <Download className="w-5 h-5" />
           <span>Descargar .md</span>
         </button>
+        <DownloadPdfButton spec={spec} />
       </div>
     </div>
   );
