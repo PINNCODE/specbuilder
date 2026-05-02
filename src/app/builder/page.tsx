@@ -6,7 +6,9 @@ import SpecOutput from "@/components/SpecOutput";
 import StreamingOutput from "@/components/StreamingOutput";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { toast } from "@/components/Toaster";
-import { Lightbulb, Loader2, X, Info, ChevronRight, Sparkles } from "lucide-react";
+import { Lightbulb, Loader2, X, Info, ChevronRight, Sparkles, Clock } from "lucide-react";
+import HistoryPanel from "@/components/HistoryPanel";
+import { saveSpec, SpecEntry } from "@/utils/storage";
 
 interface Spec {
   vision: string;
@@ -54,6 +56,7 @@ export default function BuilderPage() {
   const [showStreaming, setShowStreaming] = useState(false);
   const [currentTip, setCurrentTip] = useState(0);
   const [abortController, setAbortController] = useState<AbortController | null>(null);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const specRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -158,6 +161,7 @@ export default function BuilderPage() {
 
       specSchema.parse(validatedSpec);
       setSpec(validatedSpec);
+      saveSpec(validatedSpec, { description });
       setStreamingText("");
       setIsStreamingComplete(true);
       toast("Especificación generada exitosamente", "success");
@@ -191,6 +195,16 @@ export default function BuilderPage() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const handleLoadSpec = (entry: SpecEntry) => {
+    setSpec(entry.spec);
+    setDescription(entry.formData.description);
+    setError(null);
+    setIsHistoryOpen(false);
+    setTimeout(() => {
+      specRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 100);
+  };
+
   const charCount = description.length;
   const isValid = charCount >= MIN_CHARS;
 
@@ -210,6 +224,13 @@ export default function BuilderPage() {
               Nueva spec
             </button>
           )}
+          <button
+            onClick={() => setIsHistoryOpen(true)}
+            className="p-2 rounded-lg hover:bg-[var(--secondary)] transition-colors"
+            aria-label="Ver historial"
+          >
+            <Clock className="w-5 h-5" />
+          </button>
           <ThemeToggle />
         </div>
       </header>
@@ -318,6 +339,12 @@ export default function BuilderPage() {
             <SpecOutput spec={spec} onNewSpec={handleNewSpec} />
           </div>
         )}
+
+        <HistoryPanel
+          isOpen={isHistoryOpen}
+          onClose={() => setIsHistoryOpen(false)}
+          onLoadSpec={handleLoadSpec}
+        />
       </div>
     </main>
   );

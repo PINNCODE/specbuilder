@@ -291,10 +291,44 @@ Usuario              Frontend              API Route            MiniMax
 
 | Tipo | Storage | TTL |
 |------|---------|-----|
-| Borradores | Vercel KV (Redis) | Auto-save cada 30s |
-| Specs completadas | Vercel KV (Redis) | 30 días |
+| Borradores / Historial | localStorage (client-side) | until user clears |
+| Specs guardadas | localStorage (client-side) | 30 días |
 | Exportar PDF | Client-side (`html2pdf.js`) ✅ | — |
 | Exportar Markdown | Client-side (`Blob` + `createObjectURL`) | — |
+
+**Nota de implementación:** El MVP usa localStorage para persistencia de specs en lugar de Vercel KV. Esto permite funcionar sin backend de storage, pero significa que los datos solo están disponibles en el navegador donde se generaron.
+
+---
+
+### Historial de Specs
+
+El usuario puede ver, recuperar, renombrar y eliminar specs previamente generadas.
+
+**Funciones de acceso (`src/utils/storage.ts`):**
+```typescript
+getAllSpecs(): SpecEntry[]
+saveSpec(spec: Spec, formData, name?): string  // retorna id
+getSpecById(id: string): SpecEntry | undefined
+renameSpec(id: string, newName: string): void
+deleteSpec(id: string): void
+```
+
+**Schema de datos en localStorage:**
+```typescript
+interface SpecEntry {
+  id: string;           // crypto.randomUUID()
+  name: string;         // editable por usuario, default "Spec {fecha}"
+  createdAt: string;    // ISO date
+  formData: { description: string; platform?: string };
+  spec: Spec;           // JSON completo de la spec
+}
+```
+
+**Componentes:**
+- `HistoryPanel` (`src/components/HistoryPanel.tsx`) — panel lateral deslizable con lista de specs, rename inline, delete con confirmación
+- Botón de reloj en el header del builder para abrir el panel
+
+**Restauración de estado:** Al cargar una spec del historial, se restaura `spec` (para `SpecOutput`) y `formData.description` (para el textarea), reproduciendo exactamente el estado que tenía la app cuando se generó.
 
 ---
 
